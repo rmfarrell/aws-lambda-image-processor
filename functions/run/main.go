@@ -18,8 +18,14 @@ func main() {
       return nil, err
     }
 
+    // Parse the raw json
+    s3Event, err := parseRequest(event)
+    if err != nil {
+      return nil, err
+    }
+
     // Do all the stuff
-    s3Event, err := opt.HandleS3Event(event)
+    s3Event, err := opt.Start(event)
     return s3Event, err
   })
 }
