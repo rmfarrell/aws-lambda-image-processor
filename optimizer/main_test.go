@@ -10,6 +10,7 @@ import (
 
 // -- Test config
 const (
+  // TODO: move buckets to env vars
   sourceBucket string = "image-optimizer-bucket-src-test"
   destBucket string = "image-optimizer-bucket-dest-test"
 )
@@ -17,21 +18,45 @@ const (
 func TestMain(m *testing.M) {
   setup()
   retCode := m.Run()
+  // TODO
   // teardown()
   os.Exit(retCode)
 }
 
 func TestStart(t *testing.T) {
-  destination = &Destination {
+  group = &Group {
     destBucket,
     "this/is/a/path",
-    []Config{
-      Config {
-        []string{ "image/png" },
-        "*",
-        "convert {source} -resize x64> {destination}",
-        "converted.png",
-        "",
+    []Directive{
+      Directive {
+        "1000w.jpg",
+        []string{"*.jpg"},
+        "convert {source} -quality 50 -resize x1000> {destination}",
+      },
+      Directive {
+        "800w.jpg",
+        []string{"*.jpg"},
+        "convert {source} -quality 50 -resize x800> {destination}",
+      },
+      Directive {
+        "400w.jpg",
+        []string{"*.jpg"},
+        "convert {source} -quality 50 -resize x400> {destination}",
+      },
+      Directive {
+        "1000w.webp",
+        []string{"*.jpg", "*.png"},
+        "convert {source} -quality 50 -define webp:lossless=true -resize x1000> {destination}",
+      },
+      Directive {
+        "800w.webp",
+        []string{"*.jpg", "*.png"},
+        "convert {source} -quality 50 -define webp:lossless=true -resize x800> {destination}",
+      },
+      Directive {
+        "400w.webp",
+        []string{"*.jpg", "*.png"},
+        "convert {source} -quality 50 -define webp:lossless=true -resize x400> {destination}",
       },
     },
   }

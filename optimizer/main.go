@@ -38,13 +38,12 @@ type Bucket struct {
   Arn  string `json:"arn"`
 }
 
-type Destination struct {
+type Group struct {
   Bucket     string
   Prefix     string
-  Directives []Config
+  Directives []Directive
 }
 
-// TODO: rename to directive???
 /*
   TODO: Command should be new type
   struct {
@@ -52,24 +51,35 @@ type Destination struct {
     Arguments []string
   }
 */
-type Config struct {
-  MimeTypes []string
-  Matcher   string
-  Command   string
-  VariantId string
-  Key       string
+type Directive struct {
+  File    string
+  Glob    []string
+  Command string
+}
+
+// TODO: use this instead of string for Directive.Command
+type Command struct {
+  Head      string
+  Arguments string
+}
+
+type keyparts struct {
+  path      string
+  slug      string
+  extension string
 }
 
 var (
-  sess        *session.Session
-  destination *Destination
-  tmpPath     string
+  sess          *session.Session
+  group         *Group
+  tmpPath       string
+  localOriginal string
 )
 
 func init() {
 
   // load the config files
-  destination = loadProjectsConfigs()
+  group = loadGroups()
 
   // Initialize S3 session
   sess = session.Must(session.NewSession(&aws.Config{
@@ -81,41 +91,53 @@ func init() {
 // TODO: break out create stuff and instead use a switch case to route the request
 func Start(ev *S3Event) error {
 
+  var (
+    key string = ev.Records[0].S3.Object.Key
+    src string = ev.Records[0].S3.Bucket.Name
+    dest string = group.Bucket
+  )
+
   // Create tmp dir
   t, err := makeTmp()
   if err != nil {
     return err
   }
   tmpPath = t
+  localOriginal = fmt.Sprintf("%s/%s", tmpPath, key)
+
+  // cleanup
+  // defer
 
   // identifyproject. Key off `object.key` to figure out which project the
   // object belongs to
 
-  // download file to tmp, return tmp path to file
-  localSrc, err := getObject(
-    ev.Records[0].S3.Bucket.Name,
-    ev.Records[0].S3.Object.Key,
-  )
+  err = download(localOriginal, src, key)
   if err != nil {
-    fmt.Println(ev)
     return err
   }
 
   // apply each config item to downloaded file
-  for _, config := range destination.Directives {
-    cmd := replaceSourceAndDestination(localSrc, &config)
-    err = executeCommand(cmd)
+  // TODO: set up channel, run concurrently
+  // TODO: handle response from executeCommand
+  for _, d := range group.Directives {
+    cmd := replaceSourceAndDestination(localOriginal, &d)
+    _, err = executeCommand(cmd)
     if err != nil {
       return err
     }
 
     // upload result
-    // upload()
-
+    kp := newKeyParts(key)
+    err = upload(
+      fmt.Sprintf("%s/%s", tmpPath, d.ID),
+      dest,
+      fmt.Sprintf("%s%s/%s", kp.path, kp.slug, d.ID))
+    if err != nil {
+      return err
+    }
   }
 
-  // cleanup
-  err = removeTmp()
+  err = removeDir(tmpPath)
   if err != nil {
     return err
   }
@@ -125,19 +147,29 @@ func Start(ev *S3Event) error {
   return err
 }
 
-// Download the object from S3 into `/tmp` directory
-// TODO
+// Separate the extension from the original key into path/slug/extension
+// e.g., /this/is/a/file.jpg -> /this/is/a, file, jpg
+func newKeyParts(in string) *keyparts {
+  pathParts := strings.Split(in, ".")
+  ext := pathParts[len(pathParts)-1]
+  pathParts = pathParts[:len(pathParts)-1]
+  path := strings.Join(pathParts, ".")
+  pathParts = strings.Split(path, "/")
+  slug := pathParts[len(pathParts)-1]
+  pathParts = pathParts[:len(pathParts)-1]
+  return &keyparts {strings.Join(pathParts, "/"), slug, ext}
+}
+
+// Get the objects head
 func getObject(bucket, key string) (string, error) {
   svc := s3.New(sess)
-  result, err := svc.GetObject(&s3.GetObjectInput{
+  _, err := svc.GetObject(&s3.GetObjectInput{
     Bucket: aws.String(bucket),
     Key:    aws.String(key),
   })
   if err != nil {
     return  "", err
   }
-
-  fmt.Println(result)
   return "", nil
 }
 
@@ -151,20 +183,41 @@ func parseRequest(in json.RawMessage) (*S3Event, error) {
   return &se, nil
 }
 
-// Upload to s3 from local file
-func upload(localPath, bucket, key string) error {
-  f, err := os.Open(localPath)
+// Download
+func download(localTarget, bucket, key string) error {
+  f, err := os.Create(localTarget)
   if err != nil {
     return nil
   }
   defer f.Close()
+  downloader := s3manager.NewDownloader(sess)
+  _, err = downloader.Download(f, &s3.GetObjectInput{
+    Bucket: aws.String(bucket),
+    Key:    aws.String(key),
+  })
+  return err
+}
+
+// Upload to s3 from local file
+func upload(localPath, bucket, key string) error {
+  f, err := os.Open(localPath)
+  if err != nil {
+    return err
+  }
+  defer f.Close()
   uploader := s3manager.NewUploader(sess)
-  _, err = uploader.Upload(&s3manager.UploadInput{
+  resp, err := uploader.Upload(&s3manager.UploadInput{
     Bucket: aws.String(bucket),
     Key:    aws.String(key),
     Body:   f,
   })
+  fmt.Println(resp)
   return err
+}
+
+// TODO
+func batchUpload(files []*os.File) error {
+  return nil
 }
 
 // make the tmp staging directory
@@ -178,12 +231,12 @@ func makeTmp() (string, error) {
 }
 
 // Clean /tmp of files
-func removeTmp() error {
-  return os.Remove(tmpPath)
+func removeDir(p string) error {
+  return os.RemoveAll(p)
 }
 
 // Apply the action to the fle.
-func executeCommand(in string) error {
+func executeCommand(in string) (string, error) {
   var buf bytes.Buffer
 
   // break the command into command and args
@@ -195,18 +248,18 @@ func executeCommand(in string) error {
 	err := cmd.Start()
 	if err != nil {
     fmt.Println(err)
-    return err
+    return "", err
 	}
   cmd.Stderr = &buf
   cmd.Stdout = &buf
-  fmt.Println(buf.String())
-  return nil
+  err = cmd.Wait()
+  return buf.String(), err
 }
 
 // String replacement operation for {source} and {destination}
-func replaceSourceAndDestination(src string, c *Config) string {
+func replaceSourceAndDestination(src string, c *Directive) string {
   cmd := strings.Replace(c.Command, "{source}", src, 1)
-  return strings.Replace(cmd, "{destination}", fmt.Sprintf("%s/%s", tmpPath, c.VariantId), 1)
+  return strings.Replace(cmd, "{destination}", fmt.Sprintf("%s/%s", tmpPath, c.ID), 1)
 }
 
 // Delete a media object
@@ -214,7 +267,30 @@ func delete() error {
   return nil
 }
 
-// TODO
-func loadProjectsConfigs() *Destination {
-  return &Destination{}
+// TODO: load config files into memory
+func loadGroups() *Group {
+  return &Group{}
+}
+
+// TODO: intilializer for Group
+func newGroup() *Group {
+  return &Group{}
+}
+
+// TODO: validate group
+func (g *Group) validate() (bool, error) {
+  return false, nil
+}
+
+// TODO: initializer for directive
+func newDirective() *Directive {
+  return &Directive{}
+}
+
+/*
+ TODO: validate directive
+ - Ensure unique ID
+ */
+func (d *Directive) validate() (bool, error) {
+  return false, nil
 }
