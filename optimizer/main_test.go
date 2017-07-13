@@ -52,7 +52,7 @@ func mockCreate(obj string) *S3Event {
         "ObjectCreated:Put",
         S3 {
           Bucket {
-            "carrot-image-handler-test",
+            sourceBucket,
             fmt.Sprintf("arn:aws:s3:::%s", sourceBucket),
           },
           Object {
@@ -73,7 +73,7 @@ func mockDelete(obj string) *S3Event {
         "ObjectRemoved:Delete",
         S3 {
           Bucket {
-            "carrot-image-handler-test",
+            sourceBucket,
             fmt.Sprintf("arn:aws:s3:::%s", sourceBucket),
           },
           Object {
@@ -100,7 +100,7 @@ func setup() {
     fmt.Println(err)
   }
   // upload test.png
-  err = putObject("./testdata/test.png", sourceBucket, "test.png")
+  err = upload("./testdata/test.png", sourceBucket, "test.png")
   if err != nil {
     fmt.Println(err)
   }

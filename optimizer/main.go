@@ -10,6 +10,8 @@ import (
   "github.com/aws/aws-sdk-go/aws"
   "github.com/aws/aws-sdk-go/aws/session"
   "github.com/aws/aws-sdk-go/service/s3"
+  "github.com/satori/go.uuid"
+  "github.com/aws/aws-sdk-go/service/s3/s3manager"
 )
 
 type S3Event struct {
@@ -61,10 +63,7 @@ type Config struct {
 var (
   sess        *session.Session
   destination *Destination
-)
-
-const (
-  tmpPath string = "/tmp/imgopt"
+  tmpPath     string
 )
 
 func init() {
@@ -79,20 +78,26 @@ func init() {
 }
 
 // Run all the stuff
+// TODO: break out create stuff and instead use a switch case to route the request
 func Start(ev *S3Event) error {
 
   // Create tmp dir
-  err := makeTmp()
+  t, err := makeTmp()
   if err != nil {
     return err
   }
+  tmpPath = t
 
   // identifyproject. Key off `object.key` to figure out which project the
   // object belongs to
 
   // download file to tmp, return tmp path to file
-  localSrc, err := getObject(ev)
+  localSrc, err := getObject(
+    ev.Records[0].S3.Bucket.Name,
+    ev.Records[0].S3.Object.Key,
+  )
   if err != nil {
+    fmt.Println(ev)
     return err
   }
 
@@ -105,7 +110,7 @@ func Start(ev *S3Event) error {
     }
 
     // upload result
-    // putObject()
+    // upload()
 
   }
 
@@ -122,14 +127,12 @@ func Start(ev *S3Event) error {
 
 // Download the object from S3 into `/tmp` directory
 // TODO
-func getObject(s3e *S3Event) (string, error) {
+func getObject(bucket, key string) (string, error) {
   svc := s3.New(sess)
-  input := &s3.GetObjectInput{
-    Bucket: aws.String("examplebucket"),
-    Key:    aws.String("HappyFace.jpg"),
-  }
-
-  result, err := svc.GetObject(input)
+  result, err := svc.GetObject(&s3.GetObjectInput{
+    Bucket: aws.String(bucket),
+    Key:    aws.String(key),
+  })
   if err != nil {
     return  "", err
   }
@@ -148,24 +151,30 @@ func parseRequest(in json.RawMessage) (*S3Event, error) {
   return &se, nil
 }
 
-// Upload to s3
-func putObject(localPath, bkt, key string) error {
-  svc := s3.New(sess)
-  _, err := svc.PutObject(&s3.PutObjectInput{
-    Body:                 aws.ReadSeekCloser(strings.NewReader(localPath)),
-    Bucket:               aws.String(bkt),
-    Key:                  aws.String(key),
-  })
+// Upload to s3 from local file
+func upload(localPath, bucket, key string) error {
+  f, err := os.Open(localPath)
   if err != nil {
-    return err
+    return nil
   }
-  return nil
+  defer f.Close()
+  uploader := s3manager.NewUploader(sess)
+  _, err = uploader.Upload(&s3manager.UploadInput{
+    Bucket: aws.String(bucket),
+    Key:    aws.String(key),
+    Body:   f,
+  })
+  return err
 }
 
 // make the tmp staging directory
-// TODO: use a uuid
-func makeTmp() error {
-  return os.Mkdir(tmpPath, 0777)
+func makeTmp() (string, error) {
+  path := fmt.Sprintf("/tmp/%s", uuid.NewV4().String())
+  err := os.Mkdir(path, 0777)
+  if err != nil {
+    return "", err
+  }
+  return path, nil
 }
 
 // Clean /tmp of files
