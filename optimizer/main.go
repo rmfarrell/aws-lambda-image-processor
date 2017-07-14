@@ -9,6 +9,7 @@ import (
   "github.com/aws/aws-sdk-go/aws/session"
   "github.com/aws/aws-sdk-go/service/s3"
   "github.com/aws/aws-sdk-go/service/s3/s3manager"
+  "regexp"
 )
 
 type S3Event struct {
@@ -108,14 +109,19 @@ func Run(ev *S3Event) error {
   }
 }
 
-// TODO
+
+// ------------------------------ Helpers ------------------------------
+
+// Check whether event is a create Event
 func (ev *S3Event) isCreate() bool {
-  return true
+  p := regexp.MustCompile("^ObjectCreated")
+  return p.MatchString(ev.Records[0].EventName)
 }
 
-// TODO
+// Check whether event is a destroy Event
 func (ev *S3Event) isDestroy() bool {
-  return false
+  p := regexp.MustCompile("^ObjectRemoved")
+  return p.MatchString(ev.Records[0].EventName)
 }
 
 // TODO: figure out which group to use based on request
