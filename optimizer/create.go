@@ -7,6 +7,7 @@ import (
   "fmt"
   "strings"
   "github.com/satori/go.uuid"
+  "github.com/gobwas/glob"
 )
 
 func (ev *S3Event) create(group *Group) error {
@@ -44,7 +45,16 @@ func (ev *S3Event) create(group *Group) error {
   // apply each config item to downloaded file
   // TODO: set up channel, run concurrently
   // TODO: handle response from executeCommand
+
   for _, d := range group.Directives {
+
+    // if glob doesn't match incoming key, skip this iteration
+    // TODO: transform Glob to include project source root at instatiation of Directive
+    if !d.isMatch(key, group.Source.Root) {
+      continue
+    }
+
+    // string replacement for {source} / {destination}
     cmd := replaceSourceAndDestination(
       d.Command,
       localOriginal,
@@ -71,6 +81,34 @@ func (ev *S3Event) create(group *Group) error {
   return nil
 }
 
+// Return true if any of directives globs match the origin file
+func (d *Directive) isMatch(in, root string) bool {
+  var (
+    out  bool = false
+    path string = ""
+  )
+  if len(root) > 0 {
+    path = fmt.Sprintf("%s/", root)
+  }
+  for _, pattern := range d.Glob {
+    if isMatch(in, fmt.Sprintf("%s%s", path, pattern)) {
+      out = true
+      break
+    }
+  }
+  return out
+}
+
+// Return true if string matches pattern
+func isMatch(in string, matchers ...string) bool {
+  for _, matcher := range matchers {
+    g := glob.MustCompile(matcher)
+    if g.Match(in) {
+      return true
+    }
+  }
+  return false
+}
 
 // String replacement operation for {source} and {destination}
 func replaceSourceAndDestination(cmd, src, dest string) string {

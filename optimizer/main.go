@@ -107,9 +107,6 @@ func Run(ev *S3Event) error {
   }
 }
 
-
-// ------------------------------ Helpers ------------------------------
-
 // Initialize an AWS session
 func createSession() *session.Session {
   return session.Must(session.NewSession(&aws.Config{
@@ -227,6 +224,5 @@ func (d *Directive) validate() (bool, error) {
 }
 
 // TODO: necessary for Target roots with leading slash
-func stripLeadingSlash(s string) string {
-  return s
-}
+func stripLeadingSlash(s string) string { return s }
+func stripFollowingSlash(s string) string { return s }
