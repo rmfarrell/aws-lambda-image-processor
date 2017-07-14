@@ -14,7 +14,7 @@ func (ev *S3Event) create(group *Group) error {
   var (
     key string = ev.Records[0].S3.Object.Key
     src string = ev.Records[0].S3.Bucket.Name
-    dest string = group.Bucket
+    dest string = group.Destination.BucketName
   )
 
   // Create tmp dir
@@ -51,7 +51,7 @@ func (ev *S3Event) create(group *Group) error {
     err = upload(
       fmt.Sprintf("%s/%s", tmpPath, d.File),
       dest,
-      fmt.Sprintf("%s%s/%s", kp.path, kp.slug, d.File))
+      fmt.Sprintf("%s%s/%s", group.Destination.Root, kp.slug, d.File))
     if err != nil {
       return err
     }

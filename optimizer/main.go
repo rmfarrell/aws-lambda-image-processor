@@ -36,9 +36,15 @@ type Bucket struct {
 }
 
 type Group struct {
-  Bucket     string
-  Prefix     string
-  Directives []Directive
+  Source      Target
+  Destination Target
+  Directives  []Directive
+}
+
+// A Bucket and the path in that bucket to a root
+type Target struct {
+  BucketName string
+  Root       string
 }
 
 type Groups []Group

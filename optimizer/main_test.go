@@ -25,8 +25,14 @@ func TestMain(m *testing.M) {
 
 func TestCreateAndDestroy(t *testing.T) {
   group := &Group {
-    destBucket,
-    "this/is/a/path",
+    Target {
+      sourceBucket,
+      "",
+    },
+    Target {
+      destBucket,
+      "/this/is/a/path/",
+    },
     []Directive{
       Directive {
         "1000w.jpg",
@@ -64,6 +70,10 @@ func TestCreateAndDestroy(t *testing.T) {
   if err != nil {
     t.Fatal(err)
   }
+  // err := mockDelete("test.png").destroy(group)
+  // if err != nil {
+  //   t.Fatal(err)
+  // }
 }
 
 
