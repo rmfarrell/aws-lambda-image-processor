@@ -86,16 +86,15 @@ func init() {
 
   // load the config files
   groups = loadGroups()
-
-  // Initialize S3 session
-  sess = session.Must(session.NewSession(&aws.Config{
-  	Region: aws.String("us-east-1"),
-  }))
 }
 
 // Run all the stuff
 // TODO: break out create stuff and instead use a switch case to route the request
 func Run(ev *S3Event) error {
+
+  // Initialize S3 session
+  sess = createSession()
+
   group, err := getGroup(ev, groups)
   if err != nil {
     return err
@@ -111,6 +110,13 @@ func Run(ev *S3Event) error {
 
 
 // ------------------------------ Helpers ------------------------------
+
+// Initialize an AWS session
+func createSession() *session.Session {
+  return session.Must(session.NewSession(&aws.Config{
+    Region: aws.String("us-east-1"),
+  }))
+}
 
 // Check whether event is a create Event
 func (ev *S3Event) isCreate() bool {
@@ -220,4 +226,9 @@ func newDirective() *Directive {
  */
 func (d *Directive) validate() (bool, error) {
   return false, nil
+}
+
+// TODO: necessary for Target roots with leading slash
+func stripLeadingSlash(s string) string { 
+  return s
 }

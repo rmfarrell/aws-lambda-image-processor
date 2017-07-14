@@ -31,7 +31,7 @@ func TestCreateAndDestroy(t *testing.T) {
     },
     Target {
       destBucket,
-      "/this/is/a/path/",
+      "this/is/a/path/",
     },
     []Directive{
       Directive {
@@ -70,10 +70,10 @@ func TestCreateAndDestroy(t *testing.T) {
   if err != nil {
     t.Fatal(err)
   }
-  // err := mockDelete("test.png").destroy(group)
-  // if err != nil {
-  //   t.Fatal(err)
-  // }
+  err = mockDelete("test.png").destroy(group)
+  if err != nil {
+    t.Fatal(err)
+  }
 }
 
 
@@ -125,6 +125,10 @@ func mockDelete(obj string) *S3Event {
 // ---------------------- Setup/teardown ----------------------
 
 func setup() {
+
+  // Initialize AWS session
+  sess = createSession()
+
   // Create a destination bucket
   err := createBucket(destBucket)
   if err != nil {
