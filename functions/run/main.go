@@ -19,14 +19,15 @@ func main() {
     }
 
     // Parse the raw json
-    s3Event, err := parseRequest(event)
+    s3Event, err := opt.ParseRequest(event)
     if err != nil {
-      return nil, err
+      return err, err
     }
+    
+    // // Do all the stuff
+    err = group.Run(s3Event)
 
-    // Do all the stuff
-    s3Event, err := opt.Run(event)
-    return s3Event, err
+    return err, err
   })
 }
 

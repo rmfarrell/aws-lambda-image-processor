@@ -80,32 +80,35 @@ var (
   groups *Groups
 )
 
-func init() {
-
-  // load the config files
-  groups = loadGroups()
-}
-
 // Run all the stuff
 // TODO: break out create stuff and instead use a switch case to route the request
 // TODO: return []error instead of a single error if recoverable
-func Run(ev *S3Event) error {
+func (g *Group) Run(ev *S3Event) error {
 
   // Initialize S3 session
   sess = createSession()
 
-  group, err := getGroup(ev, groups)
-  if err != nil {
-    return err
-  }
+  // Route request
   if ev.isCreate() {
-    return ev.create(group)
+    return ev.create(g)
   } else if ev.isDestroy() {
-    return ev.destroy(group)
+    return ev.destroy(g)
   } else {
     return fmt.Errorf("%s is unrecongized event type.", ev.Records[0].EventName)
   }
 }
+
+// Parse an S3 event JSON -> S3event
+func ParseRequest(in json.RawMessage) (*S3Event, error) {
+  se := S3Event{}
+  err := json.Unmarshal(in, &se)
+  if err != nil {
+    return nil, err
+  }
+  return &se, nil
+}
+
+// -------------------------- Private --------------------------
 
 // Initialize an AWS session
 func createSession() *session.Session {
@@ -142,16 +145,6 @@ func newKeyParts(in string) *keyparts {
   slug := pathParts[len(pathParts)-1]
   pathParts = pathParts[:len(pathParts)-1]
   return &keyparts {strings.Join(pathParts, "/"), slug, ext}
-}
-
-// Parse an S3 event JSON -> S3event
-func parseRequest(in json.RawMessage) (*S3Event, error) {
-  se := S3Event{}
-  err := json.Unmarshal(in, &se)
-  if err != nil {
-    return nil, err
-  }
-  return &se, nil
 }
 
 // Download
@@ -193,11 +186,6 @@ func batchUpload(files []*os.File) error {
 // Delete a media object
 func delete() error {
   return nil
-}
-
-// TODO: load config files into memory
-func loadGroups() *Groups {
-  return &Groups{}
 }
 
 // TODO: intilializer for Group
