@@ -23,8 +23,8 @@ func TestMain(m *testing.M) {
   os.Exit(retCode)
 }
 
-func TestStart(t *testing.T) {
-  group = &Group {
+func TestCreateAndDestroy(t *testing.T) {
+  group := &Group {
     destBucket,
     "this/is/a/path",
     []Directive{
@@ -60,7 +60,7 @@ func TestStart(t *testing.T) {
       },
     },
   }
-  err := Start(mockCreate("test.png"))
+  err := mockCreate("test.png").create(group)
   if err != nil {
     t.Fatal(err)
   }

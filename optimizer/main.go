@@ -2,15 +2,12 @@ package optimizer
 
 import (
   "os"
-  "fmt"
-  "bytes"
   "strings"
-  "os/exec"
+  "fmt"
   "encoding/json"
   "github.com/aws/aws-sdk-go/aws"
   "github.com/aws/aws-sdk-go/aws/session"
   "github.com/aws/aws-sdk-go/service/s3"
-  "github.com/satori/go.uuid"
   "github.com/aws/aws-sdk-go/service/s3/s3manager"
 )
 
@@ -19,8 +16,8 @@ type S3Event struct {
 }
 
 type Record struct {
-  EventName string    `json:"eventName"`
-  S3        S3        `json:"s3"`
+  EventName string `json:"eventName"`
+  S3        S3     `json:"s3"`
 }
 
 type S3 struct {
@@ -43,6 +40,8 @@ type Group struct {
   Prefix     string
   Directives []Directive
 }
+
+type Groups []Group
 
 /*
   TODO: Command should be new type
@@ -71,15 +70,15 @@ type keyparts struct {
 
 var (
   sess          *session.Session
-  group         *Group
   tmpPath       string
   localOriginal string
+  groups        *Groups
 )
 
 func init() {
 
   // load the config files
-  group = loadGroups()
+  groups = loadGroups()
 
   // Initialize S3 session
   sess = session.Must(session.NewSession(&aws.Config{
@@ -89,62 +88,33 @@ func init() {
 
 // Run all the stuff
 // TODO: break out create stuff and instead use a switch case to route the request
-func Start(ev *S3Event) error {
-
-  var (
-    key string = ev.Records[0].S3.Object.Key
-    src string = ev.Records[0].S3.Bucket.Name
-    dest string = group.Bucket
-  )
-
-  // Create tmp dir
-  t, err := makeTmp()
+func Run(ev *S3Event) error {
+  group, err := getGroup(ev, groups)
   if err != nil {
     return err
   }
-  tmpPath = t
-  localOriginal = fmt.Sprintf("%s/%s", tmpPath, key)
-
-  // cleanup
-  // defer
-
-  // identifyproject. Key off `object.key` to figure out which project the
-  // object belongs to
-
-  err = download(localOriginal, src, key)
-  if err != nil {
-    return err
+  if ev.isCreate() {
+    return ev.create(group)
+  } else if ev.isDestroy() {
+    return ev.destroy(group)
+  } else {
+    return fmt.Errorf("%s is unrecongized event type.", ev.Records[0].EventName)
   }
+}
 
-  // apply each config item to downloaded file
-  // TODO: set up channel, run concurrently
-  // TODO: handle response from executeCommand
-  for _, d := range group.Directives {
-    cmd := replaceSourceAndDestination(localOriginal, &d)
-    _, err = executeCommand(cmd)
-    if err != nil {
-      return err
-    }
+// TODO
+func (ev *S3Event) isCreate() bool {
+  return true
+}
 
-    // upload result
-    kp := newKeyParts(key)
-    err = upload(
-      fmt.Sprintf("%s/%s", tmpPath, d.ID),
-      dest,
-      fmt.Sprintf("%s%s/%s", kp.path, kp.slug, d.ID))
-    if err != nil {
-      return err
-    }
-  }
+// TODO
+func (ev *S3Event) isDestroy() bool {
+  return false
+}
 
-  err = removeDir(tmpPath)
-  if err != nil {
-    return err
-  }
-
-  // write manifest?
-
-  return err
+// TODO: figure out which group to use based on request
+func getGroup(se *S3Event, g *Groups) (*Group, error) {
+  return &Group{}, nil
 }
 
 // Separate the extension from the original key into path/slug/extension
@@ -158,19 +128,6 @@ func newKeyParts(in string) *keyparts {
   slug := pathParts[len(pathParts)-1]
   pathParts = pathParts[:len(pathParts)-1]
   return &keyparts {strings.Join(pathParts, "/"), slug, ext}
-}
-
-// Get the objects head
-func getObject(bucket, key string) (string, error) {
-  svc := s3.New(sess)
-  _, err := svc.GetObject(&s3.GetObjectInput{
-    Bucket: aws.String(bucket),
-    Key:    aws.String(key),
-  })
-  if err != nil {
-    return  "", err
-  }
-  return "", nil
 }
 
 // Parse an S3 event JSON -> S3event
@@ -220,56 +177,14 @@ func batchUpload(files []*os.File) error {
   return nil
 }
 
-// make the tmp staging directory
-func makeTmp() (string, error) {
-  path := fmt.Sprintf("/tmp/%s", uuid.NewV4().String())
-  err := os.Mkdir(path, 0777)
-  if err != nil {
-    return "", err
-  }
-  return path, nil
-}
-
-// Clean /tmp of files
-func removeDir(p string) error {
-  return os.RemoveAll(p)
-}
-
-// Apply the action to the fle.
-func executeCommand(in string) (string, error) {
-  var buf bytes.Buffer
-
-  // break the command into command and args
-  parts := strings.Fields(in)
-  head := parts[0]
-  parts = parts[1:len(parts)]
-
-  cmd := exec.Command(head, parts...)
-	err := cmd.Start()
-	if err != nil {
-    fmt.Println(err)
-    return "", err
-	}
-  cmd.Stderr = &buf
-  cmd.Stdout = &buf
-  err = cmd.Wait()
-  return buf.String(), err
-}
-
-// String replacement operation for {source} and {destination}
-func replaceSourceAndDestination(src string, c *Directive) string {
-  cmd := strings.Replace(c.Command, "{source}", src, 1)
-  return strings.Replace(cmd, "{destination}", fmt.Sprintf("%s/%s", tmpPath, c.ID), 1)
-}
-
 // Delete a media object
 func delete() error {
   return nil
 }
 
 // TODO: load config files into memory
-func loadGroups() *Group {
-  return &Group{}
+func loadGroups() *Groups {
+  return &Groups{}
 }
 
 // TODO: intilializer for Group

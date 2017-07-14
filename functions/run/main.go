@@ -25,7 +25,7 @@ func main() {
     }
 
     // Do all the stuff
-    s3Event, err := opt.Start(event)
+    s3Event, err := opt.Run(event)
     return s3Event, err
   })
 }
