@@ -36,17 +36,17 @@ func TestCreateAndDestroy(t *testing.T) {
     []Directive{
       Directive {
         "1000w.jpg",
-        []string{"*.jpg"},
+        []string{"*.jpg", "*.png"},
         "convert {source} -quality 50 -resize x1000> {destination}",
       },
       Directive {
         "800w.jpg",
-        []string{"*.jpg"},
+        []string{"*.jpg", "*.png"},
         "convert {source} -quality 50 -resize x800> {destination}",
       },
       Directive {
         "400w.jpg",
-        []string{"*.jpg"},
+        []string{"*.jpg", "*.png"},
         "convert {source} -quality 50 -resize x400> {destination}",
       },
       Directive {

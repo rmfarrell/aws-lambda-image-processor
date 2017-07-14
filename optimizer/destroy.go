@@ -4,7 +4,8 @@ import (
   "fmt"
   "github.com/aws/aws-sdk-go/aws"
   "github.com/aws/aws-sdk-go/service/s3"
-  // "github.com/aws/aws-sdk-go/service/s3/s3manager"
+  "github.com/aws/aws-sdk-go/service/s3/s3manager"
+  "context"
 )
 
 // Destroy an endpoint in a group's destination
@@ -20,7 +21,10 @@ func (ev *S3Event) destroy(group *Group) error {
   if err != nil {
     return err
   }
-  fmt.Println(keys)
+  err = batchDelete(group.Destination.BucketName, keys)
+  if err != nil {
+    return err
+  }
   return nil
 }
 
@@ -46,6 +50,20 @@ func listAllKeysWithPrefx(bucket, pfx string) ([]string, error) {
 }
 
 // Delete a bunch of keys from a bucket concurrently
-func massDeleteKeys(bucket string, keys []string) error {
-  return nil
+func batchDelete(bucket string, keys []string) error {
+  ctx := context.Background()
+  batcher := s3manager.NewBatchDelete(sess)
+  objs := []s3manager.BatchDeleteObject{}
+  for _, key := range keys {
+    objs = append(objs, s3manager.BatchDeleteObject{
+      Object: &s3.DeleteObjectInput {
+        Key: aws.String(key),
+        Bucket: aws.String(bucket),
+      },
+    })
+  }
+
+  return batcher.Delete(ctx, &s3manager.DeleteObjectsIterator{
+  	Objects: objs,
+  })
 }

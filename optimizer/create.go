@@ -12,9 +12,12 @@ import (
 func (ev *S3Event) create(group *Group) error {
 
   var (
-    key string = ev.Records[0].S3.Object.Key
-    src string = ev.Records[0].S3.Bucket.Name
-    dest string = group.Destination.BucketName
+    key           string    = ev.Records[0].S3.Object.Key
+    src           string    = ev.Records[0].S3.Bucket.Name
+    dest          string    = group.Destination.BucketName
+    kp            *keyparts = newKeyParts(key)
+    localOriginal string
+    tmpPath       string
   )
 
   // Create tmp dir
@@ -24,6 +27,8 @@ func (ev *S3Event) create(group *Group) error {
   }
   tmpPath = t
   localOriginal = fmt.Sprintf("%s/%s", tmpPath, key)
+
+  defer removeDir(tmpPath)
 
   // cleanup
   // defer
@@ -40,14 +45,18 @@ func (ev *S3Event) create(group *Group) error {
   // TODO: set up channel, run concurrently
   // TODO: handle response from executeCommand
   for _, d := range group.Directives {
-    cmd := replaceSourceAndDestination(localOriginal, &d)
+    cmd := replaceSourceAndDestination(
+      d.Command,
+      localOriginal,
+      fmt.Sprintf("%s/%s", tmpPath, d.File),
+    )
     _, err = executeCommand(cmd)
     if err != nil {
       return err
     }
 
     // upload result
-    kp := newKeyParts(key)
+    // TODO: implement and use batch process
     err = upload(
       fmt.Sprintf("%s/%s", tmpPath, d.File),
       dest,
@@ -57,23 +66,16 @@ func (ev *S3Event) create(group *Group) error {
     }
   }
 
-  err = removeDir(tmpPath)
-  if err != nil {
-    return err
-  }
-
   // write manifest?
 
-  return err
+  return nil
 }
 
 
-// ------------------------------ Helpers ------------------------------
-
 // String replacement operation for {source} and {destination}
-func replaceSourceAndDestination(src string, c *Directive) string {
-  cmd := strings.Replace(c.Command, "{source}", src, 1)
-  return strings.Replace(cmd, "{destination}", fmt.Sprintf("%s/%s", tmpPath, c.File), 1)
+func replaceSourceAndDestination(cmd, src, dest string) string {
+  out := strings.Replace(cmd, "{source}", src, 1)
+  return strings.Replace(out, "{destination}", dest, 1)
 }
 
 // make the tmp staging directory

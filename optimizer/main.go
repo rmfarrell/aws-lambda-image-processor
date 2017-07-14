@@ -76,10 +76,8 @@ type keyparts struct {
 }
 
 var (
-  sess          *session.Session
-  tmpPath       string
-  localOriginal string
-  groups        *Groups
+  sess   *session.Session
+  groups *Groups
 )
 
 func init() {
@@ -90,6 +88,7 @@ func init() {
 
 // Run all the stuff
 // TODO: break out create stuff and instead use a switch case to route the request
+// TODO: return []error instead of a single error if recoverable
 func Run(ev *S3Event) error {
 
   // Initialize S3 session
@@ -181,12 +180,11 @@ func upload(localPath, bucket, key string) error {
   }
   defer f.Close()
   uploader := s3manager.NewUploader(sess)
-  resp, err := uploader.Upload(&s3manager.UploadInput{
+  _, err = uploader.Upload(&s3manager.UploadInput{
     Bucket: aws.String(bucket),
     Key:    aws.String(key),
     Body:   f,
   })
-  fmt.Println(resp)
   return err
 }
 
@@ -229,6 +227,6 @@ func (d *Directive) validate() (bool, error) {
 }
 
 // TODO: necessary for Target roots with leading slash
-func stripLeadingSlash(s string) string { 
+func stripLeadingSlash(s string) string {
   return s
 }
