@@ -1,0 +1,38 @@
+{
+  "event": {
+    "Records": [
+        {
+            "eventVersion": "2.0",
+            "eventSource": "aws:s3",
+            "awsRegion": "us-east-1",
+            "eventTime": "2017-07-11T20:07:49.173Z",
+            "eventName": "ObjectRemoved:Delete",
+            "userIdentity": {
+                "principalId": "AWS:AIDAIX3S5MF4DWVI2IJPW"
+            },
+            "requestParameters": {
+                "sourceIPAddress": "144.121.72.130"
+            },
+            "responseElements": {
+                "x-amz-request-id": "B7757EC7A0159F94",
+                "x-amz-id-2": "pP6xZl04BKJUdlIkDqkU62Qg6rcb50N78egO/L1HWyxRXUJ5YR7XG+pAk61ZKCLv"
+            },
+            "s3": {
+                "s3SchemaVersion": "1.0",
+                "configurationId": "5aeb79ce-6790-4ed6-96ba-ada09ff0560c",
+                "bucket": {
+                    "name": "carrot-image-handler-test",
+                    "ownerIdentity": {
+                        "principalId": "A6PXEUDVPPEDD"
+                    },
+                    "arn": "arn:aws:s3:::carrot-image-handler-test"
+                },
+                "object": {
+                    "key": "Screen+Shot+2017-07-07+at+4.14.26+PM.png",
+                    "sequencer": "005965301527AA1F11"
+                }
+            }
+        }
+    ]
+  }
+}
