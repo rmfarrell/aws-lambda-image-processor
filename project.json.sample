@@ -1,0 +1,10 @@
+{
+  "name": "image-optimizer",
+  "description": "Lambda which takes an image from an S3 bucket, runs middleware and uploads to a destination",
+  "memory": 1500,
+  "timeout": 10,
+  "role": "arn:aws:iam::219106525755:role/an-iam-role",
+  "environment": {},
+  "runtime": "golang",
+  "hooks": {}
+}
