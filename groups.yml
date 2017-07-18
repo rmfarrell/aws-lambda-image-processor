@@ -1,0 +1,16 @@
+#
+# The current config uses `my-bucket` as a destination bucket.
+# You should change this.
+# To add another destination, add a new group and specify a `root` property
+# e.g.,
+# - root: this-goes-to-my-bucket/
+#   destination: my-bucket
+#   directives: [resize_directives, compress_svg]
+#
+groups:
+  - destination: my-bucket
+    directives:
+      - resize
+      - resize_and_convert_to_webp
+      - compress_svg
+      - convert_gif_to_mp4

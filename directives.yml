@@ -1,0 +1,83 @@
+#
+# Directives
+# The below are a set of directives that can be referenced by the `groups`
+# object above. The each directive takes the following properties
+# endpoint: the eventual s3 endpoint of the file
+# matcher: matches a glob against the file in the original bucket
+# command: command to be applied against the
+# acl:
+# variables:
+#  - basename: the basename of the original file
+#  - filename: the basename + extenion of the original file
+#  - extension: the extension of the original file
+#
+
+# Break bitmaps into a bunch of different sizes
+resize:
+  - endpoint: '%{basename}/1200.%{extension}'
+    matcher: ['*.jpg', '*.png']
+    command: convert %{filename} -quality 50 -interlace Plane -resize x1200> %{filename}
+  - endpoint: '%{basename}/1000.%{extension}'
+    matcher: ['*.jpg', '*.png']
+    command: convert %{filename} -quality 50 -interlace Plane -resize x1000> %{filename}
+    acl: public-read
+  - endpoint: '%{basename}/800.%{extension}'
+    matcher: ['*.jpg', '*.png']
+    command: convert %{filename} -quality 50 -interlace Plane -resize x800> %{filename}
+    acl: public-read
+  - endpoint: '%{basename}/600.%{extension}'
+    matcher: ['*.jpg', '*.png']
+    command: convert %{filename} -quality 50 -interlace Plane -resize x600> %{filename}
+    acl: public-read
+  - endpoint: '%{basename}/400.%{extension}'
+    matcher: ['*.jpg', '*.png']
+    command: convert %{filename} -quality 50 -interlace Plane -resize x400> %{filename}
+    acl: public-read
+  - endpoint: '%{basename}/200.%{extension}'
+    matcher: ['*.jpg', '*.png']
+    command: convert %{filename} -quality 50 -interlace Plane -resize x200> %{filename}
+    acl: public-read
+
+
+# Convert bitmaps to webp in various sizes
+resize_and_convert_to_webp:
+  - endpoint: '%{basename}/1200.webp'
+    matcher: ['*.jpg', '*.png']
+    command: convert %{filename} -quality 50 -interlace Plane -define webp:lossless=false -resize x1200> %{basename}.webp
+  - endpoint: '%{basename}/1000.webp'
+    matcher: ['*.jpg', '*.png']
+    command: convert %{filename} -quality 50 -interlace Plane -define webp:lossless=false -resize x1000> %{basename}.webp
+    acl: public-read
+  - endpoint: '%{basename}/800.webp'
+    matcher: ['*.jpg', '*.png']
+    command: convert %{filename} -quality 50 -interlace Plane -define webp:lossless=false -resize x800> %{basename}.webp
+    acl: public-read
+  - endpoint: '%{basename}/600.webp'
+    matcher: ['*.jpg', '*.png']
+    command: convert %{filename} -quality 50 -interlace Plane -define webp:lossless=false -resize x600> %{basename}.webp
+    acl: public-read
+  - endpoint: '%{basename}/400.webp'
+    matcher: ['*.jpg', '*.png']
+    command: convert %{filename} -quality 50 -interlace Plane -define webp:lossless=false -resize x400> %{basename}.webp
+    acl: public-read
+  - endpoint: '%{basename}/200.webp'
+    matcher: ['*.jpg', '*.png']
+    command: convert %{filename} -quality 50 -interlace Plane -define webp:lossless=false -resize x200> %{basename}.webp
+    acl: public-read
+
+# use svgo on all svgs
+compress_svg:
+  - endpoint: '%{filename}'
+    matcher: ['*.svg']
+    command: svgo %{filename}
+    acl: public-read
+
+# convert
+convert_gif_to_mp4:
+  - endpoint: '%{basename}.gif'
+    matcher: ['*.gif']
+    acl: public-read
+  - endpoint: '%{basename}.mp4'
+    matcher: ['*.gif']
+    command: ffmpeg -i %{filename} -pix_fmt yuv420p -vf crop=floor (in_w/2)*2:floor(in_h/2)*2 %{basename}.mp4
+    acl: public-read
